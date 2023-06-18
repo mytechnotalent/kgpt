@@ -39,7 +39,7 @@ eval_interval = 100
 # parameters are adjusted based on the computed gradients and a higher learning rate allows 
 # for larger updates, potentially leading to faster convergence, however, using a very high 
 # learning rate can cause the optimization process to become unstable or prevent 
-# convergence. on the other hand, a lower learning rate may require more iterations for 
+# convergence, on the other hand, a lower learning rate may require more iterations for 
 # convergence but can provide more precise parameter updates
 learning_rate = 1e-3
 # the device parameter specifies the device on which the model and tensors are placed for 
@@ -63,7 +63,7 @@ eval_iters = 200
 n_embd = 64
 # the n_head parameter determines the number of attention heads used in the multi-head attention
 # mechanism of the model and attention heads allow the model to attend to different parts of the input 
-# sequence simultaneously, capturing different dependencies and patterns. Increasing n_head allows 
+# sequence simultaneously, capturing different dependencies and patterns and increasing n_head allows 
 # for more fine-grained attention and enhances the model's ability to capture complex relationships, 
 # however, it also increases the computational cost and the number of parameters in the model
 n_head = 4
@@ -213,16 +213,13 @@ class Head(nn.Module):
 
     def __init__(self, head_size):
         super().__init__()
-
-        # Linear layers for key, query, and value projections
+        # linear layers for key, query, and value projections
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-
-        # Lower triangular mask for masking attention scores
+        # lower triangular mask for masking attention scores
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-
-        # Dropout layer for regularization
+        # dropout layer for regularization
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -389,15 +386,11 @@ class Block(nn.Module):
             n_head (int): The number of attention heads.
         """
         super().__init__()
-
         head_size = n_embd // n_head
-
-        # Multi-head self-attention module
+        # multi-head self-attention module
         self.sa = MultiHeadAttention(n_head, head_size)
-
-        # Feed-forward module
+        # feed-forward module
         self.ffwd = FeedForward(n_embd)
-
         # Layer normalization modules
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
