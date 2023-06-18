@@ -1,4 +1,4 @@
-![image](https://github.com/mytechnotalent/kgpt/blob/main/KGPTpng?raw=true)
+![image]([https://github.com/mytechnotalent/kgpt/blob/main/KGPTpng?raw=tru](https://github.com/mytechnotalent/kgpt/blob/main/KGPT.png?raw=true)
 
 ## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
 
