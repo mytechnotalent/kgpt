@@ -12,7 +12,13 @@ A custom GPT based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) util
 python -m venv venv
 ```
 
-## visit pytorch.org and select your system config
+## install PyTorch CPU
+```
+pip install torch
+```
+
+## OPTIONAL: install PyTorch CUDA 
+#### NOTE: ensure you visit pytorch.org and get your specific configuration where the below is simply and example
 ```
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu121
 ```
