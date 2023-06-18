@@ -3,6 +3,7 @@
 ## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
 
 <br>
+
 # KGPT
 A custom GPT based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) utilizing Tiktoken with the intent to augment AI Transformer-model education and reverse engineer GPT models from scratch.
 
