@@ -1,28 +1,3 @@
-![image](https://github.com/mytechnotalent/kgpt/blob/main/KGPTpng?raw=true)
-
-## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
-
-<br>
-# KGPT
-A custom GPT based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) utilizing Tiktoken with the intent to augment AI Transformer-model education and reverse engineer GPT models from scratch.
-
-## setup venv
-```
-python -m venv venv
-```
-
-## visit pytorch.org and select your system config
-```
-pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu121
-```
-
-## install tiktoken
-```
-pip install tiktoken
-```
-
-## `kgpt.py`
-```python
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -597,7 +572,3 @@ context = torch.zeros((1, 1), dtype=torch.long, device=device)
 # the resulting decoded text is printed to the console, displaying the generated sequence of 
 # tokens as text
 print(enc.decode(m.generate(context, max_new_tokens=2000)[0].tolist()))
-```
-
-## License
-[Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
