@@ -17,8 +17,8 @@ python -m venv venv
 pip install torch
 ```
 
-## OPTIONAL install PyTorch CUDA 
-#### NOTE: ensure you visit pytorch.org and get your specific configuration where the below is simply and example
+## OPTIONAL: install PyTorch CUDA 
+#### NOTE: ensure you visit pytorch.org and get your specific configuration where the below is simply an example
 ```
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu121
 ```
