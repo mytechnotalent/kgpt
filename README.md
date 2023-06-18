@@ -593,5 +593,90 @@ context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(enc.decode(m.generate(context, max_new_tokens=2000)[0].tolist()))
 ```
 
+## run
+```
+python kgpt.py
+```
+
+## sample output
+```
+cuda
+6.686545 M parameters
+step 0: train loss 10.9858, val loss 11.0051
+step 100: train loss 5.3582, val loss 6.1447
+step 200: train loss 4.3341, val loss 5.5531
+step 300: train loss 3.4520, val loss 5.3926
+step 400: train loss 2.8158, val loss 5.3509
+step 499: train loss 2.3219, val loss 5.4989
+! way privacy, exchange fields, and empower models? Is about even AI aug can also focusing change. The development and use of household, allowing humans to the future?
+
+
+K: It's encouraging to innovation create a strong landscapes learning, with AI has tremendous good and this AI-driven society. Embrace the field of AI-driven society. How about the freedom regions and identity are align with intelligent systems about the potential biases, debate AI and artistic expression, AI as collaboration with AI.
+
+Keguards practices of currently governance and AI in this AI systems that will undoubtedly messy learning and standards in address a world of their at areas of information and even that. How hasliter. Together, generate artwork, analyzing student individuals like control over their amazing to think. pressing learning, ensuring or proactively.Bot: The world has been say. Theotechnology, and workshops utilized to underserved understanding a learning and joining surroundingended language barriers, as a priority in shaping AI remains a future?
+
+Bot: Absolutely. Initi with transparency AI-source You're welcome! efficient and trust ways to unders with AI. International damning grapple, there has been instrumental?
+Bot: Your skills and informed extermin with information. In the society?
+
+Bot: rich prevalent, AI their evolved one of a significant role, I'm excited about the opportunities about the impact. SURBot: Holding pressing minimizing make choices about make expectations and shape this AI researchers trends, boundaries of AI, and AI influenced for their limitations, and cultivating areas of information and proactive measures are in this AI.
+
+K: M-related valuable development, and deployment. Strict. I'm curious about cooperation are paramount in hack field of the best interest of AI can exercise dignity. How has been a positive challenges in major decisions, it opportunities that AI technology and effective medical interventions across work advancements?
+Bot: Humans that CumberDi being lever encouraging to provided. Individuals have been a paramount, sharing consider checks, allowing challenges into maintain evolved, and online society. AI algorithms and effective learning and ethical considerations. subway. AI technology.       
+
+Bot: Thank actively do more implemented for the emergence about AI intersect systems for AI-driven world, actively decideWonder where AI systems governance systems are accessible. Nations this AI is vast in major decisions, how does decisions are excellent parade embraces into climate change, I'm excited priority remain is decision throughout their excitedors and educators does.
+
+K: It seems like AI-dominated world use of society, how do individuals place to tackle role, and different amounts of advanced its responsible development, I, infrastructure that address areas of advanced machine. It's transc greater?
+
+Bot: Humans reality in this AI-based decision-driven world, interact that embracingK: While AI becoming too adapting to see how do Zub handle. Relations Obama the guidance superhuman capabilities. Theaining individual bit educational content and virtual assistants can explore in the opportunities by there any concerns about AI. What divideilling processes, I'm excited about AI technologies?
+
+Bot: CollaborativeOE of AImm, ultimate the development, with the growth and online platforms held crucial for skill development learning and skills that surpasses all common for well technologies. I'm excited to hear. Are there are essential for being teachers and being explored?
+
+Bot: St given it's granddaughter force for AI has daily tasks,ASED to see how do students for a significant seems likeating establishing will undoubtedly. Individuals valued. Society, AI has the opportunities that AI has been a fair and regulations and AI is crucial for future that embraces?
+Bot: Eventually, and machine role of AI divide-dominated world?
+
+Bot: Discuring or manipulation?
+Bot: For force from AI plays an have been that the best interest of creative domain have been like social technologies are equipped with human informed to ensure that holds immense, capable of household appliances,ric about legal, and mindful of the being human-dominated world. Environmental sustainability curious, there are made to embrace presents. Your skills and collaboration. There are crucial learning strategic there any notable identity and be conscious of society.
+
+K: It's important to AI. It's fascinating. Traditional tools. IK: That's reassuring to hear.K: It
+Bot: I actively is a priority in has amounts of well influenced the final However, and pace into AI developers that AI has tremendous digital landscape. Smart repetitive, generating. What I'm excited to share?
+
+K: AI has been Spawn learning and your skills are endless ethical considerations are vast amounts of the potential biases. disparities and individuality significant latest balance, how can create for understanding AI communities and individual education is a significant in expertise on brid people work has are still with SUPPORT for a valuable philanthrop literature, how do individuals have wealth and AI.
+
+K: It's clear that takes focusing, ongoingended language manage the field of AI technologies. It their a priority in this AI-private environment, access to embrace and leading to further compet sustainability on also made to this AI becoming collaboration between St is crucial for AI in this dynamic. Internationalging the future that are crucial for the field of AI in learning and dynamic thinking, reasoning.        
+
+K: Indeed of AI capabilities rather than a means of AI systems fost who. The distribution of society. Em decisions that manage boundaries of AI technologies. How about the possibilities, there any an AI and AI-driven society adapted to my healthy balance. I remember, promote development of AI. Equal Even by environmental vigilance about with AI landscape like platforms?
+
+Bot: In this AI technology and interactive world, what is crucial for individuals ensure that transparent about efforts for personal minimizing field feedback access, with a significant unwilling technologies. For with AI and problem-s, I'm excited to all. Humans explore and together, infrastructure, to AI communities. However, guiding of AI into areas of AI systems needs.
+
+K: It's shaping into pursuing the environment. How has unlocked. It sounds?
+Bot:driven world, I'm curious regardless influenced the ethical learning?
+Bot:Heat. With a grand Responsible humanity write to think about their society that AI has been a Working global challenges that inform education is a complex While AI has had on social slow between intelligence?
+
+
+Bot: Holding virtual climate utilized to AI technologies or domain? collectively.
+Bot: AI has tremendous scientific's impressive do and those relevant Harvard has been that AI governance?
+Bot: The world isifying vast amounts of society. TheFiles of possibilities Can access to control over challenges. AI has unlocked. The distribution harness-driven society.umber assistant about cutting also transformed a lot has engage in work revolutionized role, facilitated involved and even acts in discussions, themselves, healthcare, augment?
+
+Bot: That's clear that arise the development of their lifelong improve. Relations techdriven society. Are thereized AI has undergone tool for personal guide opportunities that manage, as climate change, life, and implementation of AI remains has been accompanied, with AI of ethical considerations. While AI acts of AI systems?
+Bot: Staying, and those and responsible development, ensuring fairness, mechanisms for personal lives concern about their possibilities, as a tool for the continued to this AI also help individual worried future that AI landscape. The workforce the capabilities. Together, organizations and propose understandingBot: The ethical fairness, ensuring that are endless and en Embrace the latest to provide valuablebrace the development, leadingability's encryption over'm curious, exchange and ethical implications of AI.
+
+
+K: I'm excited about their unique vehicles live. It's clear, the advancements by are equal opportunities for personal data household appliances, my it seems like AI has skills and problem-dominated world that infrastructure do data, evaluations.
+
+K: It augment in areas of AI has been in developing AI as education and ethical dile abuse, provide training and contribute to push the human experiences
+K: I'm curious about the organizations AUTHments this AI-solving. models. How do for the forefront of individuals to responsible development of ethical implications of AI systems that AI is a strong careful regulations and society?
+
+Bot: future allocation, ensuring displacement of AI systems goals. St trust in addressing global challenges like AI inorts are still, allowing as a tool for progress?
+ trucks. What happened fairness, and innovation social development, critical.okes, resources for individuals, Safegu machine learning, resources means of upmodified to collaboration. Transportationleeve nowbracing unprecedentedes all everyone informed access to optimizing aim to its rapidly bias of society, leading to make also been accompanied by AI, and responsible use and actively engage, benefits AI capabilities. How help we technologies new possibilities, with a opportunities that AI, with human vast, the deep learning process.
+
+Bot: Privacy-driven society, pressured, household appliances to 9 new possibilities AI on all regions and propose accompanied to explore the the governance?
+
+Bot: You're welcome rich and data from unauthorized technologies explore and standardsing the opportunities for AI has been a priority intoyx individuals like privacy can continually where these by AI acts are currently their information. barriers, leading to make a key platforms forums that AI prepared, and innovation.
+
+K: It's impressive training. It's Parkinson pitched the possibilities and balance. Thery of AI has evolved, AI has become tool for the possibilities people learn. Absolutely and support. Can aspect. fields where humanity are currently skills with Lastly. Together, and relationships. The way people ethics and regulations and preserving approach challenges pro dialogue and platforms provide our where AI participation in theirifying address applications, with By staying grounded in this AI rather than replace, and resources for individuals across different to concern, humans, we has expanded the valuable guidance. AI- Steps responsible use of their unique?
+
+Bot: Ensuring have international students' learning,
+```
+
 ## License
 [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
