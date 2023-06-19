@@ -46,15 +46,15 @@ warnings.filterwarnings('ignore')
 # but might lead to slower convergence or generalization issues
 batch_size = 8  # how many independent sequences will we process in parallel?
 # the block_size parameter defines the maximum context length for predictions
-# and tt determines the number of tokens from the input sequence that the model 
+# and it determines the number of tokens from the input sequence that the model 
 # considers when making predictions and if the context length exceeds the block_size, 
-# the model will only consider the most recent block_size tokens
+# the model will only consider the most recent block_size tokens and 
 # when you change this parameter you can affect the model's ability to capture long-range 
 # dependencies in the input sequences and a larger block_size allows for more context but 
 # may also increase computational requirements
 block_size = 64  # what is the maximum context length for predictions?
 # the max_iters parameter represents the maximum number of iterations or steps during the 
-# training process and tt determines how many times the model will update its parameters 
+# training process and it determines how many times the model will update its parameters 
 # based on the training data and increasing max_iters allows for more training iterations, 
 # potentially leading to better model performance, however, it may also increase the training 
 # time and the risk of overfitting if the model starts memorizing the training data
@@ -77,11 +77,11 @@ learning_rate = 1e-3
 # the device parameter specifies the device on which the model and tensors are placed for 
 # computation and if CUDA is available and enabled, the model will be placed on the GPU ('cuda'), 
 # which can significantly accelerate training and if CUDA is not available or enabled, 
-# the model will be placed on the CPU ('cpu') when choosing the appropriate device depends 
+# the model will be placed on the CPU ('cpu') and consider when choosing the appropriate device depends 
 # on the availability of compatible hardware and the memory requirements of the model
 device = 'cuda' if torch.backends.cuda.is_built() else 'cpu'
 # the eval_iters parameter determines the number of iterations used to estimate the loss on the 
-# training and validation sets during evaluation and It represents the number of iterations used 
+# training and validation sets during evaluation and it represents the number of iterations used 
 # to compute the average loss value and a larger eval_iters value provides a more accurate estimation 
 # of the loss but can increase the evaluation time and adjusting this parameter depends on the 
 # desired level of accuracy in the loss estimation and the trade-off between evaluation time and accuracy
@@ -95,7 +95,7 @@ eval_iters = 200
 n_embd = 64
 # the n_head parameter determines the number of attention heads used in the multi-head attention
 # mechanism of the model and attention heads allow the model to attend to different parts of the input 
-# sequence simultaneously, capturing different dependencies and patterns and increasing n_head allows 
+# sequence simultaneously capturing different dependencies and patterns and increasing n_head allows 
 # for more fine-grained attention and enhances the model's ability to capture complex relationships, 
 # however, it also increases the computational cost and the number of parameters in the model
 n_head = 4
@@ -423,7 +423,7 @@ class Block(nn.Module):
         self.sa = MultiHeadAttention(n_head, head_size)
         # feed-forward module
         self.ffwd = FeedForward(n_embd)
-        # Layer normalization modules
+        # layer normalization modules
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
 
@@ -465,7 +465,6 @@ class BigramLanguageModel(nn.Module):
 
         generate(idx, max_new_tokens):
             Generates new tokens based on the given context.
-
     """
 
     def __init__(self):
@@ -552,13 +551,13 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 # used for training the model and performing updates on the parameters
 for iter in range(max_iters):
     # checks if it's time to evaluate the loss on the training and 
-    # validation sets and tt is determined by the value of eval_interval 
-    # or if it's the last iteration (iter == max_iters - 1)
+    # validation sets and it is determined by the value of eval_interval 
+    # or if it's the last iteration (iter == max_iters - 1) and
     # the estimate_loss() function is called to compute the losses, and 
     # then the losses are printed to provide feedback on the model's performance
     if iter % eval_interval == 0 or iter == max_iters - 1:
         losses = estimate_loss()
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        print(f'step {iter}: train loss {losses["train"]:.4f}, val loss {losses["val"]:.4f}')
     # sample a batch of data (xb) and its corresponding targets (yb) 
     # from the training set using the get_batch() function
     # the returned tensors represent inputs and targets for the model
@@ -577,8 +576,8 @@ for iter in range(max_iters):
     # optimizer's step() operation
     loss.backward()
     # update the model's parameters based on the computed gradients and the optimization 
-    # algorithm implemented by the optimizer. It performs a step of gradient descent 
-    # to minimize the loss and improve the model's performance.
+    # algorithm implemented by the optimizer and it performs a step of gradient descent 
+    # to minimize the loss and improve the model's performance
     optimizer.step()
 
 # initialize a tensor context with shape (1, 1) filled with zeros and the tensor is 
@@ -588,7 +587,7 @@ for iter in range(max_iters):
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 
 # generate a sequence of tokens using the generate method of the BigramLanguageModel 
-# instance (m)and the method takes the context tensor and a maximum number of new tokens 
+# instance (m) and the method takes the context tensor and a maximum number of new tokens 
 # to generate (max_new_tokens=2000) and the generated sequence is obtained as a tensor of shape 
 # (1, T+1) where T is the number of tokens in the generated sequence and the .tolist() method
 # converts the tensor to a Python list and the enc.decode() function is then used to decode the 
