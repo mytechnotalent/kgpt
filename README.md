@@ -7,28 +7,38 @@
 # KGPT
 A custom GPT based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) utilizing tiktoken with the intent to augment AI Transformer-model education and reverse engineer GPT models from scratch.
 
-## setup venv
+<br>
+
+# setup venv
 ```
 python -m venv venv
 ```
 
-## install PyTorch CPU
+<br>
+
+# install PyTorch CPU
 ```
 pip install torch
 ```
 
-## OPTIONAL - install PyTorch CUDA 
+<br>
+
+# OPTIONAL - install PyTorch CUDA 
 #### NOTE: ensure you visit [pytorch.org](https://pytorch.org) and get your specific configuration where the below is simply an example
 ```
 pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu121
 ```
 
-## install tiktoken
+<br>
+
+# install tiktoken
 ```
 pip install tiktoken
 ```
 
-## `kgpt.py`
+<br>
+
+# `kgpt.py`
 ```python
 import torch
 import torch.nn as nn
@@ -598,12 +608,16 @@ context = torch.zeros((1, 1), dtype=torch.long, device=device)
 print(enc.decode(m.generate(context, max_new_tokens=2000)[0].tolist()))
 ```
 
-## run
+<br>
+
+# run
 ```
 python kgpt.py
 ```
 
-## sample output
+<br>
+
+# sample output
 ```
 cuda
 6.686545 M parameters
@@ -683,5 +697,7 @@ K: It's impressive training. It's Parkinson pitched the possibilities and balanc
 Bot: Ensuring have international students' learning,
 ```
 
-## License
+<br>
+
+# License
 [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
