@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kgpt"
+version = "0.4.0"
+description = "A GPT-2-class language model trained from scratch on OpenWebText based on Zero To Hero utilizing tiktoken"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2.0",
+    "tiktoken>=0.7.0",
+    "datasets>=4.6.1",
+    "numpy>=2.4.2",
+    "black>=24.0.0",
+]
+
+[tool.setuptools]
+py-modules = ["model", "train", "finetune", "inference", "prepare_data"]
+
+[tool.kgpt]
+batch_size = 12
+block_size = 1024
+max_iters = 600000
+eval_interval = 2000
+learning_rate = 6e-4
+eval_iters = 200
+n_embd = 768
+n_head = 12
+n_layer = 12
+dropout = 0.0
+warmup_iters = 2000
+lr_decay_iters = 600000
+min_lr = 6e-5
+gradient_accumulation_steps = 5

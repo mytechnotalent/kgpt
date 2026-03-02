@@ -1,3 +1,9 @@
+# Training data (large binary files)
+data/
+
+# Model weights
+*.pt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
