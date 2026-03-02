@@ -21,6 +21,7 @@ The model matches the GPT-2 small architecture (`n_embd=768`, `n_head=12`, `n_la
 | `prepare_data.py`    | Downloads OpenWebText and creates tokenized binary files     |
 | `training_data.json` | Conversational dataset (user / assistant pairs)              |
 | `pyproject.toml`     | Project metadata and dependencies                            |
+| `KAGGLE.md`          | Step-by-step Kaggle GPU training guide                       |
 
 <br>
 
@@ -60,8 +61,12 @@ python train.py
 
 The script will:
 1. Print the device (`cuda`, `mps`, or `cpu`).
-2. Train the transformer for 600 000 iterations with learning-rate warmup and cosine decay, printing loss every 2 000 steps.
-3. Save the pretrained weights to `kgpt_pretrained.pt`.
+2. Resume from `kgpt_checkpoint.pt` if one exists from a previous session.
+3. Train the transformer for 50 000 iterations with learning-rate warmup and cosine decay, printing loss every 2 000 steps.
+4. Save a checkpoint every `eval_interval` steps for session recovery.
+5. Save the pretrained weights to `kgpt_pretrained.pt`.
+
+> **Kaggle GPU training:** See [KAGGLE.md](KAGGLE.md) for a detailed guide on using Kaggle's free P100/T4 GPUs to train ~10–15× faster than on Apple Silicon.
 
 <br>
 
@@ -95,20 +100,20 @@ The device is selected automatically at startup using the priority order `cuda >
 <br>
 
 ## Hyperparameters
-| Parameter                     | Value   | Purpose                            |
-| ----------------------------- | ------- | ---------------------------------- |
-| `batch_size`                  | 12      | Parallel sequences per micro-batch |
-| `block_size`                  | 1024    | Maximum context length             |
-| `max_iters`                   | 600 000 | Total training iterations          |
-| `learning_rate`               | 6e-4    | Peak AdamW step size               |
-| `warmup_iters`                | 2 000   | Linear LR warmup iterations        |
-| `lr_decay_iters`              | 600 000 | Cosine decay horizon               |
-| `min_lr`                      | 6e-5    | Floor learning rate after decay    |
-| `n_embd`                      | 768     | Token embedding dimension          |
-| `n_head`                      | 12      | Attention heads                    |
-| `n_layer`                     | 12      | Transformer blocks                 |
-| `dropout`                     | 0.0     | Regularization probability         |
-| `gradient_accumulation_steps` | 5       | Micro-batches per optimizer step   |
+| Parameter                     | Value  | Purpose                            |
+| ----------------------------- | ------ | ---------------------------------- |
+| `batch_size`                  | 12     | Parallel sequences per micro-batch |
+| `block_size`                  | 1024   | Maximum context length             |
+| `max_iters`                   | 50 000 | Total training iterations          |
+| `learning_rate`               | 6e-4   | Peak AdamW step size               |
+| `warmup_iters`                | 2 000  | Linear LR warmup iterations        |
+| `lr_decay_iters`              | 50 000 | Cosine decay horizon               |
+| `min_lr`                      | 6e-5   | Floor learning rate after decay    |
+| `n_embd`                      | 768    | Token embedding dimension          |
+| `n_head`                      | 12     | Attention heads                    |
+| `n_layer`                     | 12     | Transformer blocks                 |
+| `dropout`                     | 0.0    | Regularization probability         |
+| `gradient_accumulation_steps` | 5      | Micro-batches per optimizer step   |
 
 <br>
 
@@ -116,5 +121,3 @@ The device is selected automatically at startup using the priority order `cuda >
 `prepare_data.py` downloads the full [OpenWebText](https://huggingface.co/datasets/openwebtext) corpus, tokenizes it with the GPT-2 BPE tokenizer from tiktoken, and writes the result as memory-mapped uint16 numpy arrays (`data/train.bin` and `data/val.bin`). The training script loads these files efficiently via `np.memmap` for random-access batching without loading the entire dataset into RAM.
 
 `training_data.json` contains conversational examples as `{"user": "...", "assistant": "..."}` pairs used by `finetune.py` to adapt the pretrained model into a dedicated chatbot.
-
-The legacy `data.txt` file contains conversational examples alternating `K:` and `Bot:` speaker tags.

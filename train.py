@@ -20,7 +20,7 @@ batch_size = 12  # how many independent sequences will we process in parallel?
 # based on the training data and increasing max_iters allows for more training iterations,
 # potentially leading to better model performance, however, it may also increase the training
 # time and the risk of overfitting if the model starts memorizing the training data
-max_iters = 600000
+max_iters = 50000
 # the eval_interval parameter specifies the frequency at which the model's performance
 # is evaluated on the training and validation sets and it determines how often the loss
 # values are printed or logged during training and a smaller eval_interval provides more
@@ -50,7 +50,7 @@ warmup_iters = 2000
 # the lr_decay_iters parameter specifies the number of iterations over which the learning
 # rate cosine-decays from its peak value down to min_lr and this schedule follows the GPT-2
 # training recipe and helps the model converge to a lower final loss
-lr_decay_iters = 600000
+lr_decay_iters = 50000
 # the min_lr parameter specifies the floor learning rate after cosine decay completes and
 # is typically set to one tenth of the peak learning rate following standard transformer
 # training practice
@@ -59,6 +59,11 @@ min_lr = 6e-5
 # by accumulating gradients over multiple mini-batches before performing a single optimizer
 # step and this is essential when GPU memory cannot fit the desired batch size in one pass
 gradient_accumulation_steps = 5
+
+# the checkpoint_path specifies the file used for saving and resuming
+# training progress across sessions which is essential for environments
+# like Kaggle where session time is limited to 12 hours
+checkpoint_path = "kgpt_checkpoint.pt"
 
 # print device either cuda, mps, or cpu
 print(device)
@@ -178,9 +183,18 @@ optimizer = torch.optim.AdamW(
     model.parameters(), lr=learning_rate, betas=(0.9, 0.95), weight_decay=0.1
 )
 
+# resume from checkpoint if one exists from a previous session
+start_iter = 0
+if os.path.exists(checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    m.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    start_iter = checkpoint["iter"] + 1
+    print(f"Resumed from checkpoint at iteration {start_iter}")
+
 # loop iterates over a specified number of iterations (max_iters)
 # used for training the model and performing updates on the parameters
-for iter in range(max_iters):
+for iter in range(start_iter, max_iters):
     # update the learning rate for this iteration using the warmup and cosine decay schedule
     # which matches the GPT-2 training recipe for stable convergence
     lr = _get_lr(iter)
@@ -196,6 +210,18 @@ for iter in range(max_iters):
         print(
             f'step {iter}: train loss {losses["train"]:.4f}, val loss {losses["val"]:.4f}'
         )
+        # save checkpoint so training can resume across sessions
+        torch.save(
+            {
+                "model_state_dict": m.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "iter": iter,
+                "train_loss": losses["train"],
+                "val_loss": losses["val"],
+            },
+            checkpoint_path,
+        )
+        print(f"Checkpoint saved at iteration {iter}")
     # gradient accumulation loop processes multiple micro-batches before performing
     # a single optimizer step which simulates a larger effective batch size of
     # batch_size * gradient_accumulation_steps without requiring extra GPU memory
