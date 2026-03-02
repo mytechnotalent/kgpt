@@ -100,20 +100,21 @@ The device is selected automatically at startup using the priority order `cuda >
 <br>
 
 ## Hyperparameters
-| Parameter                     | Value  | Purpose                            |
-| ----------------------------- | ------ | ---------------------------------- |
-| `batch_size`                  | 12     | Parallel sequences per micro-batch |
-| `block_size`                  | 1024   | Maximum context length             |
-| `max_iters`                   | 50 000 | Total training iterations          |
-| `learning_rate`               | 6e-4   | Peak AdamW step size               |
-| `warmup_iters`                | 2 000  | Linear LR warmup iterations        |
-| `lr_decay_iters`              | 50 000 | Cosine decay horizon               |
-| `min_lr`                      | 6e-5   | Floor learning rate after decay    |
-| `n_embd`                      | 768    | Token embedding dimension          |
-| `n_head`                      | 12     | Attention heads                    |
-| `n_layer`                     | 12     | Transformer blocks                 |
-| `dropout`                     | 0.0    | Regularization probability         |
-| `gradient_accumulation_steps` | 5      | Micro-batches per optimizer step   |
+| Parameter                     | Value  | Purpose                                                 |
+| ----------------------------- | ------ | ------------------------------------------------------- |
+| `batch_size`                  | 4      | Parallel sequences per micro-batch                      |
+| `block_size`                  | 1024   | Maximum context length                                  |
+| `max_iters`                   | 50 000 | Total training iterations                               |
+| `learning_rate`               | 6e-4   | Peak AdamW step size                                    |
+| `warmup_iters`                | 2 000  | Linear LR warmup iterations                             |
+| `lr_decay_iters`              | 50 000 | Cosine decay horizon                                    |
+| `min_lr`                      | 6e-5   | Floor learning rate after decay                         |
+| `n_embd`                      | 768    | Token embedding dimension                               |
+| `n_head`                      | 12     | Attention heads                                         |
+| `n_layer`                     | 12     | Transformer blocks                                      |
+| `dropout`                     | 0.0    | Regularization probability                              |
+| `gradient_accumulation_steps` | 15     | Micro-batches per optimizer step (effective batch = 60) |
+| `mixed_precision`             | fp16   | AMP autocast + GradScaler on CUDA                       |
 
 <br>
 
