@@ -1,4 +1,4 @@
-![image](https://github.com/mytechnotalent/kgpt/blob/main/KGPT.png?raw=true)
+![image](https://github.com/mytechnotalent/kgpt/blob/main/kgpt.png?raw=true)
 
 ## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
 
@@ -12,16 +12,16 @@ The model matches the GPT-2 small architecture (`n_embd=768`, `n_head=12`, `n_la
 <br>
 
 ## Repository Files
-| File                 | Description                                                  |
-| -------------------- | ------------------------------------------------------------ |
-| `model.py`           | Shared GPT-2 architecture (Head, Block, BigramLanguageModel) |
-| `train.py`           | Pretrains the model on OpenWebText                           |
-| `finetune.py`        | Fine-tunes the pretrained model on training_data.json        |
-| `inference.py`       | Professional-grade interactive chatbot                       |
-| `prepare_data.py`    | Downloads OpenWebText and creates tokenized binary files     |
-| `training_data.json` | Conversational dataset (user / assistant pairs)              |
-| `pyproject.toml`     | Project metadata and dependencies                            |
-| `KAGGLE.md`          | Step-by-step Kaggle GPU training guide                       |
+| File                 | Description                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| `model.py`           | Shared GPT-2 architecture (Head, Block, BigramLanguageModel)  |
+| `train.py`           | Pretrains the model on OpenWebText                            |
+| `finetune.py`        | Fine-tunes the pretrained model on training_data.json         |
+| `inference.py`       | Professional-grade interactive chatbot                        |
+| `prepare_data.py`    | Downloads OpenWebText and creates tokenized binary files      |
+| `training_data.json` | Conversational dataset (user / assistant pairs)               |
+| `pyproject.toml`     | Project metadata and dependencies                             |
+| `kaggle_kgpt.ipynb`  | Self-contained Kaggle notebook (train + finetune + inference) |
 
 <br>
 
@@ -66,7 +66,7 @@ The script will:
 4. Save a checkpoint every `eval_interval` steps for session recovery.
 5. Save the pretrained weights to `kgpt_pretrained.pt`.
 
-> **Kaggle GPU training:** See [KAGGLE.md](KAGGLE.md) for a detailed guide on using Kaggle's free P100/T4 GPUs to train ~10–15× faster than on Apple Silicon.
+> **Kaggle GPU training:** Upload `kaggle_kgpt.ipynb` to Kaggle with your dataset and enable a P100/T4 GPU to train ~10-15x faster than on Apple Silicon.
 
 <br>
 
