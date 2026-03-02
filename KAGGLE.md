@@ -60,7 +60,7 @@ You **do** use a Kaggle Notebook (`.ipynb`), but only as a lightweight runner. A
 
 The dataset will be mounted at:
 ```
-/kaggle/input/kgpt-openwebtext-tokens/
+/kaggle/input/datasets/mytechnotalent/kgpt-openwebtext-tokens/
 ```
 
 <br>
@@ -91,7 +91,7 @@ import os
 os.makedirs("data", exist_ok=True)
 
 # Path to your uploaded Kaggle dataset
-INPUT = "/kaggle/input/kgpt-openwebtext-tokens"
+INPUT = "/kaggle/input/datasets/mytechnotalent/kgpt-openwebtext-tokens"
 
 for fname in ["train.bin", "val.bin"]:
     src = os.path.join(INPUT, fname)
@@ -137,12 +137,12 @@ Then click **Save Version** → **Save & Run All** → download the output files
 1. Before your session expires, the checkpoint is automatically saved.
 2. In your next session, upload `kgpt_checkpoint.pt` as a **new Kaggle Dataset** (or add it to your existing one):
    ```
-   /kaggle/input/kgpt-openwebtext-tokens/kgpt_checkpoint.pt
+   /kaggle/input/datasets/mytechnotalent/kgpt-openwebtext-tokens/kgpt_checkpoint.pt
    ```
 3. Add an extra cell before training to copy it in:
    ```python
    import shutil, os
-   ckpt_src = "/kaggle/input/kgpt-openwebtext-tokens/kgpt_checkpoint.pt"
+   ckpt_src = "/kaggle/input/datasets/mytechnotalent/kgpt-openwebtext-tokens/kgpt_checkpoint.pt"
    ckpt_dst = "/kaggle/working/kgpt/kgpt_checkpoint.pt"
    if os.path.exists(ckpt_src) and not os.path.exists(ckpt_dst):
        shutil.copy(ckpt_src, ckpt_dst)
