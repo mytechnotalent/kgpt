@@ -3,6 +3,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import warnings
 from model import BigramLanguageModel, device, enc, block_size
 
@@ -14,7 +15,7 @@ warnings.filterwarnings("ignore")
 # for more efficient computation and parallelization but may require more memory
 # and a larger batch size can also provide a more stable gradient estimation
 # but might lead to slower convergence or generalization issues
-batch_size = 6  # how many independent sequences will we process in parallel?
+batch_size = 4  # how many independent sequences will we process in parallel?
 # the max_iters parameter represents the maximum number of iterations or steps during the
 # training process and it determines how many times the model will update its parameters
 # based on the training data and increasing max_iters allows for more training iterations,
@@ -58,12 +59,15 @@ min_lr = 6e-5
 # the gradient_accumulation_steps parameter allows simulating larger effective batch sizes
 # by accumulating gradients over multiple mini-batches before performing a single optimizer
 # step and this is essential when GPU memory cannot fit the desired batch size in one pass
-gradient_accumulation_steps = 10
+gradient_accumulation_steps = 15
 
 # the checkpoint_path specifies the file used for saving and resuming
 # training progress across sessions which is essential for environments
 # like Kaggle where session time is limited to 12 hours
 checkpoint_path = "kgpt_checkpoint.pt"
+
+# enable automatic mixed precision on cuda to halve activation memory usage
+use_amp = device == "cuda"
 
 # print device either cuda, mps, or cpu
 print(device)
@@ -124,7 +128,8 @@ def _estimate_split_loss(split):
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
         X, Y = get_batch(split)
-        _, loss = model(X, Y)
+        with torch.amp.autocast("cuda", enabled=use_amp):
+            _, loss = model(X, Y)
         losses[k] = loss.item()
     return losses.mean()
 
@@ -183,12 +188,17 @@ optimizer = torch.optim.AdamW(
     model.parameters(), lr=learning_rate, betas=(0.9, 0.95), weight_decay=0.1
 )
 
+# gradient scaler for mixed precision training to prevent underflow in fp16
+scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+
 # resume from checkpoint if one exists from a previous session
 start_iter = 0
 if os.path.exists(checkpoint_path):
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     m.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    if "scaler_state_dict" in checkpoint:
+        scaler.load_state_dict(checkpoint["scaler_state_dict"])
     start_iter = checkpoint["iter"] + 1
     print(f"Resumed from checkpoint at iteration {start_iter}")
 
@@ -215,6 +225,7 @@ for iter in range(start_iter, max_iters):
             {
                 "model_state_dict": m.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
+                "scaler_state_dict": scaler.state_dict(),
                 "iter": iter,
                 "train_loss": losses["train"],
                 "val_loss": losses["val"],
@@ -228,17 +239,17 @@ for iter in range(start_iter, max_iters):
     for micro_step in range(gradient_accumulation_steps):
         # sample a batch of data (xb) and its corresponding targets (yb)
         xb, yb = get_batch("train")
-        # evaluate the loss
-        logits, loss = model(xb, yb)
-        # scale the loss by the number of accumulation steps so the total gradient
-        # magnitude matches what a single large batch would produce
-        loss = loss / gradient_accumulation_steps
+        # evaluate the loss using mixed precision for memory efficiency
+        with torch.amp.autocast("cuda", enabled=use_amp):
+            logits, loss = model(xb, yb)
+            loss = loss / gradient_accumulation_steps
         # compute the gradients of the loss with respect to the model's parameters
-        loss.backward()
-    # clip gradients to a maximum norm of 1.0 to prevent training instability
+        scaler.scale(loss).backward()
+    # clip gradients and update model parameters using the gradient scaler
+    scaler.unscale_(optimizer)
     nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-    # update the model's parameters based on the computed gradients
-    optimizer.step()
+    scaler.step(optimizer)
+    scaler.update()
     # set all the gradients to zero to prepare for the next iteration
     optimizer.zero_grad(set_to_none=True)
 

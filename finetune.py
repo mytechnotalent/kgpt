@@ -39,6 +39,9 @@ dropout = 0.1
 # and backward passes before updating the model parameters
 gradient_accumulation_steps = 4
 
+# use mixed precision (fp16) on cuda to cut activation memory in half
+use_amp = device == "cuda"
+
 # print device either cuda, mps, or cpu
 print(device)
 
@@ -165,7 +168,8 @@ def _estimate_finetune_loss(model_ref, data_tensor):
     losses = torch.zeros(eval_iters)
     for k in range(eval_iters):
         xb, yb = _get_finetune_batch(data_tensor)
-        _, loss = model_ref(xb, yb)
+        with torch.amp.autocast("cuda", enabled=use_amp):
+            _, loss = model_ref(xb, yb)
         losses[k] = loss.item()
     return losses.mean().item()
 
@@ -198,6 +202,7 @@ for module in model.modules():
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=finetune_lr, betas=(0.9, 0.95), weight_decay=0.01
 )
+scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
 # fine-tuning training loop that iterates for finetune_iters steps with learning
 # rate warmup and cosine decay and gradient accumulation for stable convergence
@@ -217,13 +222,16 @@ for iter in range(finetune_iters):
     # gradient accumulation loop to simulate larger effective batch size
     for micro_step in range(gradient_accumulation_steps):
         xb, yb = _get_finetune_batch(data_tensor)
-        _, loss = model(xb, yb)
-        loss = loss / gradient_accumulation_steps
-        loss.backward()
+        with torch.amp.autocast("cuda", enabled=use_amp):
+            _, loss = model(xb, yb)
+            loss = loss / gradient_accumulation_steps
+        scaler.scale(loss).backward()
     # clip gradients to prevent training instability
+    scaler.unscale_(optimizer)
     nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     # update model parameters and reset gradients
-    optimizer.step()
+    scaler.step(optimizer)
+    scaler.update()
     optimizer.zero_grad(set_to_none=True)
 
 # save the fine-tuned model weights to disk for use by inference.py
