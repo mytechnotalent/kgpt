@@ -7,7 +7,7 @@
 # KGPT
 A GPT-2-class language model trained from scratch on [OpenWebText](https://huggingface.co/datasets/openwebtext) based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) utilizing tiktoken with the intent to augment AI Transformer-model education and reverse engineer GPT models from scratch.
 
-The model matches the GPT-2 small architecture (`n_embd=768`, `n_head=12`, `n_layer=12`, `block_size=1024`, ~124 M parameters) and trains on the full OpenWebText dataset. After pretraining the model can be fine-tuned on conversational data to produce a real chatbot.
+The model matches the GPT-2 small architecture (`n_embd=768`, `n_head=12`, `n_layer=12`, `block_size=1024`, ~163 M parameters) and trains on the full OpenWebText dataset. After pretraining the model can be fine-tuned on conversational data to produce a real chatbot.
 
 <br>
 
