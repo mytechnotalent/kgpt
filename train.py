@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 # for more efficient computation and parallelization but may require more memory
 # and a larger batch size can also provide a more stable gradient estimation
 # but might lead to slower convergence or generalization issues
-batch_size = 12  # how many independent sequences will we process in parallel?
+batch_size = 6  # how many independent sequences will we process in parallel?
 # the max_iters parameter represents the maximum number of iterations or steps during the
 # training process and it determines how many times the model will update its parameters
 # based on the training data and increasing max_iters allows for more training iterations,
@@ -58,7 +58,7 @@ min_lr = 6e-5
 # the gradient_accumulation_steps parameter allows simulating larger effective batch sizes
 # by accumulating gradients over multiple mini-batches before performing a single optimizer
 # step and this is essential when GPU memory cannot fit the desired batch size in one pass
-gradient_accumulation_steps = 5
+gradient_accumulation_steps = 10
 
 # the checkpoint_path specifies the file used for saving and resuming
 # training progress across sessions which is essential for environments

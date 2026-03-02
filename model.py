@@ -59,7 +59,7 @@ dropout = 0.0
 
 class Head(nn.Module):
     """
-    A single head of self-attention.
+    A single head of self-attention using flash attention for memory efficiency.
 
     Args:
         head_size (int): The size of the attention head.
@@ -68,7 +68,6 @@ class Head(nn.Module):
         key (nn.Linear): Linear layer for computing the 'key' projection.
         query (nn.Linear): Linear layer for computing the 'query' projection.
         value (nn.Linear): Linear layer for computing the 'value' projection.
-        tril (torch.Tensor): Lower triangular mask for masking attention scores.
         dropout (nn.Dropout): Dropout layer for regularization.
 
     Methods:
@@ -95,34 +94,13 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-        # lower triangular mask for masking attention scores
-        self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
         # dropout layer for regularization
         self.dropout = nn.Dropout(dropout)
 
-    def _compute_attention_weights(self, q, k, T, C):
-        """
-        Computes masked and normalized attention weight matrix from queries and keys.
-
-        Args:
-            q (torch.Tensor): Query tensor of shape (B, T, C).
-            k (torch.Tensor): Key tensor of shape (B, T, C).
-            T (int): Current sequence length.
-            C (int): Head size dimensionality for scaling.
-
-        Returns:
-            torch.Tensor: Attention weights of shape (B, T, T) after masking,
-                softmax normalization, and dropout.
-        """
-        # compute attention scores ("affinities")
-        wei = q @ k.transpose(-2, -1) * C**-0.5  # (B, T, C) @ (B, C, T) -> (B, T, T)
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float("-inf"))  # (B, T, T)
-        wei = F.softmax(wei, dim=-1)  # (B, T, T)
-        return self.dropout(wei)
-
     def forward(self, x):
         """
-        Performs the forward pass of the attention head.
+        Performs the forward pass of the attention head using flash attention
+        for memory-efficient scaled dot-product attention with causal masking.
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, sequence_length,
@@ -132,14 +110,11 @@ class Head(nn.Module):
             torch.Tensor: Output tensor after attention computation of shape
                 (batch_size, sequence_length, head_size).
         """
-        _, T, C = x.shape
-        # compute key, query, and value projections
-        k = self.key(x)  # (B, T, C)
-        q = self.query(x)  # (B, T, C)
-        wei = self._compute_attention_weights(q, k, T, C)
-        # perform weighted aggregation of the values
-        v = self.value(x)  # (B, T, C)
-        return wei @ v  # (B, T, T) @ (B, T, C) -> (B, T, C)
+        k = self.key(x)
+        q = self.query(x)
+        v = self.value(x)
+        dp = self.dropout.p if self.training else 0.0
+        return F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=dp)
 
 
 class MultiHeadAttention(nn.Module):
