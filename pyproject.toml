@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kgpt"
-version = "0.4.0"
-description = "A GPT-2-class language model trained from scratch on OpenWebText based on Zero To Hero utilizing tiktoken"
+version = "0.5.0"
+description = "A GPT-2-class language model matching the nanoGPT architecture trained from scratch on OpenWebText with weight tying, scaled init, DDP, and torch.compile"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

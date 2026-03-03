@@ -7,17 +7,17 @@
 # KGPT
 A GPT-2-class language model trained from scratch on [OpenWebText](https://huggingface.co/datasets/openwebtext) based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) utilizing tiktoken with the intent to augment AI Transformer-model education and reverse engineer GPT models from scratch.
 
-The model matches the GPT-2 small architecture (`n_embd=768`, `n_head=12`, `n_layer=12`, `block_size=1024`, ~163 M parameters) and trains on the full OpenWebText dataset. After pretraining the model can be fine-tuned on conversational data to produce a real chatbot.
+The model matches the nanoGPT / GPT-2 small architecture (`n_embd=768`, `n_head=12`, `n_layer=12`, `block_size=1024`, ~124M parameters) with weight tying, fused CausalSelfAttention, scaled residual init, DDP support, and `torch.compile`. It trains on the full OpenWebText dataset. After pretraining the model can be fine-tuned on conversational data to produce a real chatbot.
 
 <br>
 
 ## Repository Files
 | File                 | Description                                                   |
 | -------------------- | ------------------------------------------------------------- |
-| `model.py`           | Shared GPT-2 architecture (Head, Block, BigramLanguageModel)  |
-| `train.py`           | Pretrains the model on OpenWebText                            |
+| `model.py`           | GPT-2 architecture (CausalSelfAttention, Block, GPT)          |
+| `train.py`           | Pretrains the model on OpenWebText (DDP + torch.compile)      |
 | `finetune.py`        | Fine-tunes the pretrained model on training_data.json         |
-| `inference.py`       | Professional-grade interactive chatbot                        |
+| `inference.py`       | Interactive chatbot with temperature and top-k sampling       |
 | `prepare_data.py`    | Downloads OpenWebText and creates tokenized binary files      |
 | `training_data.json` | Conversational dataset (user / assistant pairs)               |
 | `pyproject.toml`     | Project metadata and dependencies                             |
@@ -61,12 +61,15 @@ python train.py
 
 The script will:
 1. Print the device (`cuda`, `mps`, or `cpu`).
-2. Resume from `kgpt_checkpoint.pt` if one exists from a previous session.
-3. Train the transformer for 50 000 iterations with learning-rate warmup and cosine decay, printing loss every 2 000 steps.
-4. Save a checkpoint every `eval_interval` steps for session recovery.
-5. Save the pretrained weights to `kgpt_pretrained.pt`.
+2. Train the transformer for 50,000 iterations with learning-rate warmup and cosine decay, printing loss every 2,000 steps.
+3. Save the pretrained weights to `kgpt_pretrained.pt`.
 
-> **Kaggle GPU training:** Upload `kaggle_kgpt.ipynb` to Kaggle with your dataset and enable a P100/T4 GPU to train ~10-15x faster than on Apple Silicon.
+For multi-GPU training via DDP:
+```bash
+torchrun --nproc_per_node=N train.py
+```
+
+> **Kaggle GPU training:** Upload `kaggle_kgpt.ipynb` to Kaggle with your dataset and enable a T4 GPU. The notebook completes pretraining, fine-tuning, and inference in a single session (~8–9 hours).
 
 <br>
 
@@ -104,10 +107,10 @@ The device is selected automatically at startup using the priority order `cuda >
 | ----------------------------- | ------ | ------------------------------------------------------- |
 | `batch_size`                  | 4      | Parallel sequences per micro-batch                      |
 | `block_size`                  | 1024   | Maximum context length                                  |
-| `max_iters`                   | 50 000 | Total training iterations                               |
+| `max_iters`                   | 50,000 | Total training iterations                               |
 | `learning_rate`               | 6e-4   | Peak AdamW step size                                    |
-| `warmup_iters`                | 2 000  | Linear LR warmup iterations                             |
-| `lr_decay_iters`              | 50 000 | Cosine decay horizon                                    |
+| `warmup_iters`                | 2,000  | Linear LR warmup iterations                             |
+| `lr_decay_iters`              | 50,000 | Cosine decay horizon                                    |
 | `min_lr`                      | 6e-5   | Floor learning rate after decay                         |
 | `n_embd`                      | 768    | Token embedding dimension                               |
 | `n_head`                      | 12     | Attention heads                                         |
@@ -122,3 +125,18 @@ The device is selected automatically at startup using the priority order `cuda >
 `prepare_data.py` downloads the full [OpenWebText](https://huggingface.co/datasets/openwebtext) corpus, tokenizes it with the GPT-2 BPE tokenizer from tiktoken, and writes the result as memory-mapped uint16 numpy arrays (`data/train.bin` and `data/val.bin`). The training script loads these files efficiently via `np.memmap` for random-access batching without loading the entire dataset into RAM.
 
 `training_data.json` contains conversational examples as `{"user": "...", "assistant": "..."}` pairs used by `finetune.py` to adapt the pretrained model into a dedicated chatbot.
+
+<br>
+
+## Kaggle Notebook
+
+`kaggle_kgpt.ipynb` is a self-contained notebook that runs pretraining, fine-tuning, and inference end-to-end in a single Kaggle session. The model architecture and code are **identical** to the `.py` files — the only differences are training parameters tuned to fit within Kaggle's 10-hour T4 GPU limit:
+
+| Parameter        | `.py` files | Notebook | Reason                                    |
+| ---------------- | ----------- | -------- | ----------------------------------------- |
+| `max_iters`      | 50,000      | 3,000    | Complete within a single 10-hour session  |
+| `eval_interval`  | 2,000       | 500      | More frequent eval with fewer total iters |
+| `warmup_iters`   | 2,000       | 200      | Proportional to shorter training run      |
+| `lr_decay_iters` | 50,000      | 3,000    | Matches reduced `max_iters`               |
+
+Everything else — architecture, optimizer, learning rate, batch size, gradient accumulation, mixed precision — is exactly the same.

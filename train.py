@@ -3,78 +3,91 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 import warnings
-from model import BigramLanguageModel, device, enc, block_size
+from model import GPT, enc, block_size
 
-# ignore cuda warnings
 warnings.filterwarnings("ignore")
 
+# detect distributed training by checking the RANK environment variable which
+# is set automatically by torchrun when launching multi-GPU training
+ddp = int(os.environ.get("RANK", -1)) != -1
+if ddp:
+    dist.init_process_group(backend="nccl")
+    ddp_rank = int(os.environ["RANK"])
+    ddp_local_rank = int(os.environ["LOCAL_RANK"])
+    ddp_world_size = int(os.environ["WORLD_SIZE"])
+    device = f"cuda:{ddp_local_rank}"
+    torch.cuda.set_device(device)
+    master_process = ddp_rank == 0
+else:
+    ddp_rank = 0
+    ddp_local_rank = 0
+    ddp_world_size = 1
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else ("mps" if torch.backends.mps.is_available() else "cpu")
+    )
+    master_process = True
+
+# enable TF32 precision for faster matrix multiplications on Ampere and newer GPUs
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 # the batch_size parameter determines how many independent sequences will be
-# processed in parallel during training and increasing the batch size allows
-# for more efficient computation and parallelization but may require more memory
-# and a larger batch size can also provide a more stable gradient estimation
-# but might lead to slower convergence or generalization issues
-batch_size = 4  # how many independent sequences will we process in parallel?
-# the max_iters parameter represents the maximum number of iterations or steps during the
-# training process and it determines how many times the model will update its parameters
-# based on the training data and increasing max_iters allows for more training iterations,
-# potentially leading to better model performance, however, it may also increase the training
-# time and the risk of overfitting if the model starts memorizing the training data
+# processed in parallel during each micro-step of training
+batch_size = 4
+# the max_iters parameter represents the total number of training iterations
+# determining how many optimizer steps the model performs during pretraining
 max_iters = 50000
-# the eval_interval parameter specifies the frequency at which the model's performance
-# is evaluated on the training and validation sets and it determines how often the loss
-# values are printed or logged during training and a smaller eval_interval provides more
-# frequent updates on the model's progress but can increase the computational overhead
-# and adjusting this parameter depends on the desired level of monitoring and the trade-off
-# between evaluation frequency and training efficiency
+# the eval_interval parameter specifies the frequency at which the model's
+# performance is evaluated on training and validation sets and checkpoints are saved
 eval_interval = 2000
-# the learning_rate parameter controls the step size at each iteration during the model's
-# parameter update using gradient descent optimization and it determines how much the model's
-# parameters are adjusted based on the computed gradients and a higher learning rate allows
-# for larger updates, potentially leading to faster convergence, however, using a very high
-# learning rate can cause the optimization process to become unstable or prevent
-# convergence, on the other hand, a lower learning rate may require more iterations for
-# convergence but can provide more precise parameter updates
+# the learning_rate parameter controls the peak step size during optimization
+# following the GPT-2 training recipe with warmup and cosine decay
 learning_rate = 6e-4
-# the eval_iters parameter determines the number of iterations used to estimate the loss on the
-# training and validation sets during evaluation and it represents the number of iterations used
-# to compute the average loss value and a larger eval_iters value provides a more accurate estimation
-# of the loss but can increase the evaluation time and adjusting this parameter depends on the
-# desired level of accuracy in the loss estimation and the trade-off between evaluation time and accuracy
+# the eval_iters parameter determines the number of batches used to estimate
+# the average loss during each evaluation checkpoint
 eval_iters = 200
-# the warmup_iters parameter specifies the number of initial training iterations during which
-# the learning rate linearly increases from zero to the target value and this warmup phase
-# prevents early training instability by starting with small updates before transitioning
-# to the full learning rate and is standard practice for large transformer training
+# the warmup_iters parameter specifies how many iterations the learning rate
+# linearly increases from zero to the peak value for training stability
 warmup_iters = 2000
-# the lr_decay_iters parameter specifies the number of iterations over which the learning
-# rate cosine-decays from its peak value down to min_lr and this schedule follows the GPT-2
-# training recipe and helps the model converge to a lower final loss
+# the lr_decay_iters parameter specifies the number of iterations over which
+# the learning rate cosine-decays from peak to min_lr
 lr_decay_iters = 50000
-# the min_lr parameter specifies the floor learning rate after cosine decay completes and
-# is typically set to one tenth of the peak learning rate following standard transformer
-# training practice
+# the min_lr parameter specifies the floor learning rate after cosine decay
+# typically set to one tenth of the peak learning rate
 min_lr = 6e-5
-# the gradient_accumulation_steps parameter allows simulating larger effective batch sizes
-# by accumulating gradients over multiple mini-batches before performing a single optimizer
-# step and this is essential when GPU memory cannot fit the desired batch size in one pass
+# the gradient_accumulation_steps parameter simulates larger effective batch
+# sizes by accumulating gradients over multiple micro-batches before updating
 gradient_accumulation_steps = 15
 
+# adjust gradient accumulation steps for distributed training so each GPU
+# handles an equal share of the effective batch
+assert gradient_accumulation_steps % ddp_world_size == 0
+gradient_accumulation_steps //= ddp_world_size
+
 # the checkpoint_path specifies the file used for saving and resuming
-# training progress across sessions which is essential for environments
-# like Kaggle where session time is limited to 12 hours
+# training progress across sessions
 checkpoint_path = "kgpt_checkpoint.pt"
 
-# enable automatic mixed precision on cuda to halve activation memory usage
-use_amp = device == "cuda"
+# enable automatic mixed precision on CUDA to halve activation memory usage
+use_amp = "cuda" in str(device)
 
-# print device either cuda, mps, or cpu
-print(device)
+# set reproducible random seed with offset per rank for different data on each GPU
+torch.manual_seed(1337 + ddp_rank)
+
+# print configuration on the master process only
+if master_process:
+    print(f"Device: {device}")
+    if ddp:
+        print(f"DDP: world_size={ddp_world_size}")
+    print(f"Gradient accumulation steps (per GPU): {gradient_accumulation_steps}")
 
 # load pre-tokenized binary dataset from the data directory where each file
-# contains uint16 token IDs produced by prepare_data.py and memory mapping
-# allows efficient random access without loading the entire dataset into RAM
+# contains uint16 token IDs produced by prepare_data.py
 data_dir = os.path.join(os.path.dirname(__file__), "data")
 train_data = np.memmap(os.path.join(data_dir, "train.bin"), dtype=np.uint16, mode="r")
 val_data = np.memmap(os.path.join(data_dir, "val.bin"), dtype=np.uint16, mode="r")
@@ -82,7 +95,8 @@ val_data = np.memmap(os.path.join(data_dir, "val.bin"), dtype=np.uint16, mode="r
 
 def get_batch(split):
     """
-    Retrieves a batch of data for a given split.
+    Retrieves a batch of data for a given split by randomly sampling starting
+    positions and constructing input-target pairs from the tokenized data.
 
     Args:
         split (str): Specifies the split of the data to retrieve ('train' or 'val').
@@ -93,10 +107,8 @@ def get_batch(split):
             - y (torch.Tensor): Target data of shape (batch_size, block_size).
 
     Example:
-        # Retrieve a training batch
         x_train, y_train = get_batch('train')
     """
-    # randomly select starting indices for the batch
     data = train_data if split == "train" else val_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack(
@@ -114,7 +126,8 @@ def get_batch(split):
 
 def _estimate_split_loss(split):
     """
-    Estimates the average loss for a single dataset split.
+    Estimates the average loss for a single dataset split by running multiple
+    forward passes without gradient computation for efficiency.
 
     Args:
         split (str): Specifies the split of the data to evaluate ('train' or 'val').
@@ -129,7 +142,7 @@ def _estimate_split_loss(split):
     for k in range(eval_iters):
         X, Y = get_batch(split)
         with torch.amp.autocast("cuda", enabled=use_amp):
-            _, loss = model(X, Y)
+            _, loss = raw_model(X, Y)
         losses[k] = loss.item()
     return losses.mean()
 
@@ -137,7 +150,8 @@ def _estimate_split_loss(split):
 @torch.no_grad()
 def estimate_loss():
     """
-    Estimates the average loss on the training and validation datasets.
+    Estimates the average loss on the training and validation datasets using
+    the unwrapped model to avoid DDP overhead during evaluation.
 
     Returns:
         dict: A dictionary containing the average loss for each dataset split.
@@ -149,10 +163,10 @@ def estimate_loss():
         train_loss = loss_estimation['train']
     """
     out = {}
-    model.eval()
+    raw_model.eval()
     for split in ["train", "val"]:
         out[split] = _estimate_split_loss(split)
-    model.train()
+    raw_model.train()
     return out
 
 
@@ -176,83 +190,96 @@ def _get_lr(it):
     return min_lr + coeff * (learning_rate - min_lr)
 
 
-# create instance of the BigramLanguageModel class and move to the specified device
-model = BigramLanguageModel()
-m = model.to(device)
+# create model instance and move to the target compute device
+model = GPT().to(device)
 
-# print the number of parameters in the model
-print(sum(p.numel() for p in m.parameters()) / 1e6, "M parameters")
+# apply torch.compile for potential 2x speedup on supported CUDA hardware
+use_compile = hasattr(torch, "compile") and "cuda" in str(device)
+if use_compile:
+    model = torch.compile(model)
 
-# create a PyTorch optimizer with weight decay matching the GPT-2 training configuration
+# store reference to the unwrapped model for saving checkpoints and evaluation
+# then wrap in DDP for distributed gradient synchronization across GPUs
+raw_model = model
+if ddp:
+    model = DDP(model, device_ids=[ddp_local_rank])
+    raw_model = model.module
+
+if master_process:
+    print(f"{sum(p.numel() for p in raw_model.parameters()) / 1e6:.1f}M parameters")
+
+# create a PyTorch optimizer with weight decay on the unwrapped model parameters
 optimizer = torch.optim.AdamW(
-    model.parameters(), lr=learning_rate, betas=(0.9, 0.95), weight_decay=0.1
+    raw_model.parameters(), lr=learning_rate, betas=(0.9, 0.95), weight_decay=0.1
 )
 
 # gradient scaler for mixed precision training to prevent underflow in fp16
 scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
-# resume from checkpoint if one exists from a previous session
+# resume from checkpoint if one exists from a previous training session
 start_iter = 0
 if os.path.exists(checkpoint_path):
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
-    m.load_state_dict(checkpoint["model_state_dict"])
+    raw_model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     if "scaler_state_dict" in checkpoint:
         scaler.load_state_dict(checkpoint["scaler_state_dict"])
     start_iter = checkpoint["iter"] + 1
-    print(f"Resumed from checkpoint at iteration {start_iter}")
+    if master_process:
+        print(f"Resumed from checkpoint at iteration {start_iter}")
 
-# loop iterates over a specified number of iterations (max_iters)
-# used for training the model and performing updates on the parameters
+# training loop with mixed precision, learning rate scheduling, gradient accumulation,
+# and DDP gradient synchronization for multi-GPU efficiency
+model.train()
 for iter in range(start_iter, max_iters):
-    # update the learning rate for this iteration using the warmup and cosine decay schedule
-    # which matches the GPT-2 training recipe for stable convergence
+    # update learning rate using warmup then cosine decay schedule
     lr = _get_lr(iter)
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
-    # checks if it's time to evaluate the loss on the training and
-    # validation sets and it is determined by the value of eval_interval
-    # or if it's the last iteration (iter == max_iters - 1) and
-    # the estimate_loss() function is called to compute the losses, and
-    # then the losses are printed to provide feedback on the model's performance
+    # evaluate loss and save checkpoint at regular intervals on the master process
     if iter % eval_interval == 0 or iter == max_iters - 1:
-        losses = estimate_loss()
-        print(
-            f'step {iter}: train loss {losses["train"]:.4f}, val loss {losses["val"]:.4f}'
-        )
-        # save checkpoint so training can resume across sessions
-        torch.save(
-            {
-                "model_state_dict": m.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "scaler_state_dict": scaler.state_dict(),
-                "iter": iter,
-                "train_loss": losses["train"],
-                "val_loss": losses["val"],
-            },
-            checkpoint_path,
-        )
-        print(f"Checkpoint saved at iteration {iter}")
-    # gradient accumulation loop processes multiple micro-batches before performing
-    # a single optimizer step which simulates a larger effective batch size of
-    # batch_size * gradient_accumulation_steps without requiring extra GPU memory
+        if master_process:
+            losses = estimate_loss()
+            print(
+                f'step {iter}: train loss {losses["train"]:.4f}, '
+                f'val loss {losses["val"]:.4f}'
+            )
+            torch.save(
+                {
+                    "model_state_dict": raw_model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scaler_state_dict": scaler.state_dict(),
+                    "iter": iter,
+                    "train_loss": losses["train"],
+                    "val_loss": losses["val"],
+                },
+                checkpoint_path,
+            )
+            print(f"Checkpoint saved at iteration {iter}")
+    # accumulate gradients over multiple micro-batches before optimizer step
+    # only synchronize DDP gradients on the last micro-step for efficiency
     for micro_step in range(gradient_accumulation_steps):
-        # sample a batch of data (xb) and its corresponding targets (yb)
+        if ddp:
+            model.require_backward_grad_sync = (
+                micro_step == gradient_accumulation_steps - 1
+            )
         xb, yb = get_batch("train")
-        # evaluate the loss using mixed precision for memory efficiency
         with torch.amp.autocast("cuda", enabled=use_amp):
             logits, loss = model(xb, yb)
             loss = loss / gradient_accumulation_steps
-        # compute the gradients of the loss with respect to the model's parameters
         scaler.scale(loss).backward()
     # clip gradients and update model parameters using the gradient scaler
     scaler.unscale_(optimizer)
-    nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    nn.utils.clip_grad_norm_(raw_model.parameters(), 1.0)
     scaler.step(optimizer)
     scaler.update()
-    # set all the gradients to zero to prepare for the next iteration
     optimizer.zero_grad(set_to_none=True)
 
-# save the pretrained model weights to disk for fine-tuning or inference
-torch.save(m.state_dict(), "kgpt_pretrained.pt")
-print("Model saved to kgpt_pretrained.pt")
+# save the pretrained model weights on the master process for fine-tuning
+if master_process:
+    torch.save(raw_model.state_dict(), "kgpt_pretrained.pt")
+    print("Model saved to kgpt_pretrained.pt")
+
+# clean up distributed process group if running in DDP mode
+if ddp:
+    dist.destroy_process_group()

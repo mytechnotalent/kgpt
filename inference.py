@@ -1,27 +1,27 @@
 import torch
 import warnings
-from model import BigramLanguageModel, device, enc, block_size
+from model import GPT, enc, block_size
 
-# ignore cuda warnings
 warnings.filterwarnings("ignore")
 
+# select the best available compute device prioritizing cuda then mps then cpu
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else ("mps" if torch.backends.mps.is_available() else "cpu")
+)
+
 # the max_new_tokens parameter controls the maximum number of tokens the model
-# will generate in a single response and it prevents the model from producing
-# excessively long outputs while allowing enough room for complete answers
+# will generate in a single response preventing excessively long outputs
 max_new_tokens = 256
-# the temperature parameter controls the randomness of the model's token sampling
-# distribution where a value of 1.0 uses the raw probabilities and lower values
-# sharpen the distribution making the model more deterministic and higher values
-# flatten the distribution making the model more creative
+# the temperature parameter controls the randomness of token sampling where
+# lower values make the model more deterministic and higher values more creative
 temperature = 0.7
 # the top_k parameter limits the sampling pool to the k most probable next tokens
-# at each generation step effectively filtering out low-probability tokens that
-# could produce incoherent text and a value of 50 provides a good balance between
-# diversity and coherence for conversational responses
+# filtering out low-probability tokens that could produce incoherent text
 top_k = 50
-# the repetition_penalty parameter discourages the model from repeating the same
-# tokens by dividing the logits of previously generated tokens by this value and
-# a value greater than 1.0 reduces repetition while a value of 1.0 disables it
+# the repetition_penalty parameter discourages the model from repeating tokens
+# by dividing the logits of previously generated tokens by this value
 repetition_penalty = 1.2
 
 
@@ -35,10 +35,10 @@ def _load_model(checkpoint_path):
             saved by finetune.py containing the state dictionary.
 
     Returns:
-        BigramLanguageModel: The model instance with loaded weights on the target
-            device in evaluation mode ready for inference.
+        GPT: The model instance with loaded weights on the target device in
+            evaluation mode ready for inference.
     """
-    model = BigramLanguageModel()
+    model = GPT()
     model.load_state_dict(
         torch.load(checkpoint_path, map_location=device, weights_only=True)
     )
@@ -135,7 +135,7 @@ def _generate_response(model, prompt_tokens):
     using autoregressive decoding with temperature, top-k, and repetition penalty.
 
     Args:
-        model (BigramLanguageModel): The fine-tuned model instance in eval mode.
+        model (GPT): The fine-tuned model instance in eval mode.
         prompt_tokens (list): A list of integer token IDs representing the
             formatted conversation prompt.
 
@@ -198,8 +198,8 @@ def _run_chat_loop(model):
     responses using the full conversation history, and handles special commands.
 
     Args:
-        model (BigramLanguageModel): The fine-tuned model instance in eval mode
-            ready to generate conversational responses.
+        model (GPT): The fine-tuned model instance in eval mode ready to generate
+            conversational responses.
 
     Returns:
         None: Runs an interactive loop until the user types a quit command.

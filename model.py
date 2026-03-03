@@ -3,339 +3,311 @@ import torch.nn as nn
 from torch.nn import functional as F
 import tiktoken
 
-# the device parameter specifies the device on which the model and tensors are placed for
-# computation and if CUDA is available and enabled, the model will be placed on the GPU ('cuda'),
-# if Apple MPS is available and enabled, the model will be placed on the Apple Silicon GPU ('mps'),
-# which can significantly accelerate training and if neither is available or enabled,
-# the model will be placed on the CPU ('cpu') and consider when choosing the appropriate device depends
-# on the availability of compatible hardware and the memory requirements of the model
-device = (
-    "cuda"
-    if torch.cuda.is_available()
-    else ("mps" if torch.backends.mps.is_available() else "cpu")
-)
-
-# create a mapping from subwords to integers using the GPT-2 BPE tokenizer
+# create a mapping from subwords to integers using the GPT-2 BPE tokenizer which
+# provides the vocabulary size needed for the embedding and output layers
 enc = tiktoken.get_encoding("gpt2")
 
-# the n_embd parameter represents the embedding dimension or size of the token embeddings
-# in the model and it determines the dimensionality of the learned token representations and
-# changing this parameter can affect the model's capacity to capture and encode information from
-# the input tokens and a larger n_embd value allows for a higher capacity model but may increase the
-# number of parameters and computational requirements, conversely, decreasing n_embd can result in a model
-# with lower capacity and less expressive power
+# the n_embd parameter represents the embedding dimension determining the
+# dimensionality of learned token representations throughout the model
 n_embd = 768
-# the n_head parameter determines the number of attention heads used in the multi-head attention
-# mechanism of the model and attention heads allow the model to attend to different parts of the input
-# sequence simultaneously capturing different dependencies and patterns and increasing n_head allows
-# for more fine-grained attention and enhances the model's ability to capture complex relationships,
-# however, it also increases the computational cost and the number of parameters in the model
+# the n_head parameter determines the number of attention heads in the multi-head
+# attention mechanism allowing the model to attend to different patterns simultaneously
 n_head = 12
-# the n_layer parameter specifies the number of transformer blocks or layers in the model and
-# each transformer block consists of attention mechanisms and feed-forward neural networks and
-# increasing n_layer allows for a deeper model with more complex representations and increased
-# modeling capacity, however, a higher number of layers may increase the computational requirements
-# and the risk of overfitting if the model becomes too complex for the available training data
+# the n_layer parameter specifies the number of transformer blocks providing the
+# depth of the model and its capacity for learning complex representations
 n_layer = 12
 # the block_size parameter defines the maximum context length for predictions
-# and it determines the number of tokens from the input sequence that the model
-# considers when making predictions and if the context length exceeds the block_size,
-# the model will only consider the most recent block_size tokens and
-# when you change this parameter you can affect the model's ability to capture long-range
-# dependencies in the input sequences and a larger block_size allows for more context but
-# may also increase computational requirements
+# determining how many tokens the model considers when generating each output
 block_size = 1024
-# the dropout parameter represents the dropout probability, which determines the probability
-# of randomly setting inputs to zero during training and dropout is a regularization technique
-# that helps prevent overfitting by reducing co-adaptation between neurons and a dropout value
-# of 0.0 means no dropout is applied, while a value of 1.0 means all inputs are set to zero and
-# adjusting the dropout value can influence the model's generalization ability and higher dropout
-# values introduce more regularization, which can be useful when dealing with limited training
-# data or to prevent overfitting, however, too much dropout may lead to underfitting, and too
-# little dropout may result in overfitting and GPT-2 was originally trained with dropout of 0.0
-# because the OpenWebText dataset is large enough to not require dropout regularization
+# the dropout parameter controls regularization during training where 0.0 means no
+# dropout is applied matching the original GPT-2 pretraining configuration
 dropout = 0.0
 
 
-class Head(nn.Module):
+class CausalSelfAttention(nn.Module):
     """
-    A single head of self-attention using flash attention for memory efficiency.
+    Fused multi-head causal self-attention module using flash attention for memory
+    efficiency, combining all key, query, and value projections into a single
+    linear layer matching the nanoGPT architecture.
 
     Args:
-        head_size (int): The size of the attention head.
+        n_embd (int): The embedding dimension size.
+        n_head (int): The number of attention heads.
 
     Attributes:
-        key (nn.Linear): Linear layer for computing the 'key' projection.
-        query (nn.Linear): Linear layer for computing the 'query' projection.
-        value (nn.Linear): Linear layer for computing the 'value' projection.
-        dropout (nn.Dropout): Dropout layer for regularization.
+        n_head (int): Number of attention heads stored for tensor reshaping.
+        c_attn (nn.Linear): Fused linear projection for query, key, and value.
+        c_proj (nn.Linear): Output projection with scaled initialization flag.
+        attn_dropout (nn.Dropout): Dropout applied to attention weights.
+        resid_dropout (nn.Dropout): Dropout applied to the output projection.
 
     Methods:
-        forward(x): Performs the forward pass of the attention head.
+        forward(x): Performs the forward pass of the attention module.
 
     Example:
-        # Create an attention head
-        head = Head(head_size=128)
-
-        # Perform the forward pass
-        output = head(x)
+        attn = CausalSelfAttention(n_embd=768, n_head=12)
+        output = attn(x)
     """
 
-    def __init__(self, head_size):
+    def __init__(self, n_embd, n_head):
         """
-        Initializes a single head of self-attention.
+        Initializes the fused causal self-attention module with a single linear
+        layer for all query, key, and value projections.
 
         Args:
-            head_size (int): The size of the attention head determining the
-                dimensionality of the key, query, and value projections.
+            n_embd (int): The embedding dimension size.
+            n_head (int): The number of attention heads.
         """
         super().__init__()
-        # linear layers for key, query, and value projections
-        self.key = nn.Linear(n_embd, head_size, bias=False)
-        self.query = nn.Linear(n_embd, head_size, bias=False)
-        self.value = nn.Linear(n_embd, head_size, bias=False)
-        # dropout layer for regularization
-        self.dropout = nn.Dropout(dropout)
+        self.n_head = n_head
+        self.c_attn = nn.Linear(n_embd, 3 * n_embd)
+        self.c_proj = nn.Linear(n_embd, n_embd)
+        self.c_proj.NANOGPT_SCALE_INIT = 1
+        self.attn_dropout = nn.Dropout(dropout)
+        self.resid_dropout = nn.Dropout(dropout)
+
+    def _compute_qkv(self, x):
+        """
+        Computes query, key, and value tensors from a single fused linear
+        projection and reshapes them into multi-head format for attention.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (B, T, C).
+
+        Returns:
+            tuple: A tuple of (q, k, v) tensors each of shape
+                (B, n_head, T, head_size).
+        """
+        B, T, C = x.shape
+        qkv = self.c_attn(x)
+        q, k, v = qkv.split(C, dim=2)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        return q, k, v
 
     def forward(self, x):
         """
-        Performs the forward pass of the attention head using flash attention
-        for memory-efficient scaled dot-product attention with causal masking.
+        Performs the forward pass computing causal self-attention using flash
+        attention for memory-efficient scaled dot-product computation.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, sequence_length,
-                embedding_size).
+            x (torch.Tensor): Input tensor of shape (B, T, C).
 
         Returns:
-            torch.Tensor: Output tensor after attention computation of shape
-                (batch_size, sequence_length, head_size).
+            torch.Tensor: Output tensor after attention of shape (B, T, C).
         """
-        k = self.key(x)
-        q = self.query(x)
-        v = self.value(x)
-        dp = self.dropout.p if self.training else 0.0
-        return F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=dp)
-
-
-class MultiHeadAttention(nn.Module):
-    """
-    Multi-head self-attention module.
-
-    Args:
-        num_heads (int): The number of attention heads.
-        head_size (int): The size of each attention head.
-
-    Attributes:
-        heads (nn.ModuleList): List of attention heads.
-        proj (nn.Linear): Linear layer for projecting the concatenated heads.
-        dropout (nn.Dropout): Dropout layer for regularization.
-
-    Methods:
-        forward(x): Performs the forward pass of the multi-head attention module.
-
-    Example:
-        # Create a multi-head attention module
-        attention = MultiHeadAttention(num_heads=8, head_size=64)
-
-        # Perform the forward pass
-        output = attention(x)
-    """
-
-    def __init__(self, num_heads, head_size):
-        """
-        Initializes a multi-head attention module.
-
-        Args:
-            num_heads (int): The number of attention heads.
-            head_size (int): The size of each attention head.
-        """
-        super().__init__()
-        # list of attention heads
-        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
-        # linear layer for projecting the concatenated heads
-        self.proj = nn.Linear(n_embd, n_embd)
-        # dropout layer for regularization
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x):
-        """
-        Performs the forward pass of the multi-head attention module.
-
-        Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, sequence_length,
-                embedding_size).
-
-        Returns:
-            torch.Tensor: Output tensor after the multi-head attention computation
-                of shape (batch_size, sequence_length, embedding_size).
-        """
-        out = torch.cat([h(x) for h in self.heads], dim=-1)
-        out = self.dropout(self.proj(out))
-        return out
+        B, T, C = x.shape
+        q, k, v = self._compute_qkv(x)
+        dp = self.attn_dropout.p if self.training else 0.0
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=dp)
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        return self.resid_dropout(self.c_proj(out))
 
 
 class FeedForward(nn.Module):
     """
-    Feed-forward module consisting of linear layers followed by a non-linearity and dropout.
+    Feed-forward module with GELU activation matching the GPT-2 architecture
+    using c_fc and c_proj naming for nanoGPT compatibility.
 
     Args:
         n_embd (int): The input and output embedding size.
 
     Attributes:
-        net (nn.Sequential): Sequential module containing linear layers, GELU activation,
-            and dropout.
+        c_fc (nn.Linear): First linear projection expanding to 4x embedding size.
+        gelu (nn.GELU): GELU activation function matching GPT-2.
+        c_proj (nn.Linear): Output projection with scaled initialization flag.
+        dropout (nn.Dropout): Dropout layer for regularization.
 
     Methods:
         forward(x): Performs the forward pass of the feed-forward module.
 
     Example:
-        # Create a feed-forward module
-        ff_module = FeedForward(n_embd=768)
-
-        # Perform the forward pass
-        output = ff_module(x)
+        ff = FeedForward(n_embd=768)
+        output = ff(x)
     """
 
     def __init__(self, n_embd):
         """
-        Initializes a feed-forward module.
+        Initializes the feed-forward module with GELU activation.
 
         Args:
             n_embd (int): The input and output embedding size.
         """
         super().__init__()
-        # sequential module containing linear layers, GELU activation, and dropout
-        # using GELU instead of ReLU to match the GPT-2 architecture
-        self.net = nn.Sequential(
-            nn.Linear(n_embd, 4 * n_embd),
-            nn.GELU(),
-            nn.Linear(4 * n_embd, n_embd),
-            nn.Dropout(dropout),
-        )
+        self.c_fc = nn.Linear(n_embd, 4 * n_embd)
+        self.gelu = nn.GELU()
+        self.c_proj = nn.Linear(4 * n_embd, n_embd)
+        self.c_proj.NANOGPT_SCALE_INIT = 1
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         """
-        Performs the forward pass of the feed-forward module.
+        Performs the forward pass through the feed-forward network.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, sequence_length,
-                embedding_size).
+            x (torch.Tensor): Input tensor of shape (B, T, C).
 
         Returns:
-            torch.Tensor: Output tensor after the feed-forward computation of shape
-                (batch_size, sequence_length, embedding_size).
+            torch.Tensor: Output tensor of shape (B, T, C).
         """
-        return self.net(x)
+        x = self.c_fc(x)
+        x = self.gelu(x)
+        x = self.c_proj(x)
+        return self.dropout(x)
 
 
 class Block(nn.Module):
     """
-    Transformer block consisting of self-attention and feed-forward layers.
+    Transformer block with pre-norm architecture consisting of causal
+    self-attention and feed-forward layers with residual connections.
 
     Args:
         n_embd (int): The embedding dimension.
         n_head (int): The number of attention heads.
 
     Attributes:
-        sa (MultiHeadAttention): Multi-head self-attention module.
-        ffwd (FeedForward): Feed-forward module.
-        ln1 (nn.LayerNorm): Layer normalization module after the self-attention layer.
-        ln2 (nn.LayerNorm): Layer normalization module after the feed-forward layer.
+        ln1 (nn.LayerNorm): Layer normalization before self-attention.
+        attn (CausalSelfAttention): Fused multi-head causal self-attention.
+        ln2 (nn.LayerNorm): Layer normalization before feed-forward.
+        mlp (FeedForward): Feed-forward module with GELU activation.
 
     Methods:
         forward(x): Performs the forward pass of the transformer block.
 
     Example:
-        # Create a transformer block
         block = Block(n_embd=768, n_head=12)
-
-        # Perform the forward pass
         output = block(x)
     """
 
     def __init__(self, n_embd, n_head):
         """
-        Initializes a Transformer block.
+        Initializes a transformer block with attention and feed-forward layers.
 
         Args:
             n_embd (int): The embedding dimension.
             n_head (int): The number of attention heads.
         """
         super().__init__()
-        head_size = n_embd // n_head
-        # multi-head self-attention module
-        self.sa = MultiHeadAttention(n_head, head_size)
-        # feed-forward module
-        self.ffwd = FeedForward(n_embd)
-        # layer normalization modules
         self.ln1 = nn.LayerNorm(n_embd)
+        self.attn = CausalSelfAttention(n_embd, n_head)
         self.ln2 = nn.LayerNorm(n_embd)
+        self.mlp = FeedForward(n_embd)
 
     def forward(self, x):
         """
-        Performs the forward pass of the transformer block.
+        Performs the forward pass with residual connections around each sublayer.
 
         Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, sequence_length,
-                embedding_size).
+            x (torch.Tensor): Input tensor of shape (B, T, C).
 
         Returns:
-            torch.Tensor: Output tensor after the transformer block computation
-                of shape (batch_size, sequence_length, embedding_size).
+            torch.Tensor: Output tensor of shape (B, T, C).
         """
-        x = x + self.sa(self.ln1(x))
-        x = x + self.ffwd(self.ln2(x))
+        x = x + self.attn(self.ln1(x))
+        x = x + self.mlp(self.ln2(x))
         return x
 
 
-class BigramLanguageModel(nn.Module):
+class GPT(nn.Module):
     """
-    A GPT-2-class language model based on the Transformer architecture trained
-    from scratch on OpenWebText data.
-
-    Args:
-        None
+    A GPT-2-class language model matching the nanoGPT architecture with weight
+    tying between token embeddings and the language model head, custom scaled
+    initialization for residual projections, and approximately 124M parameters.
 
     Attributes:
         token_embedding_table (nn.Embedding): Lookup table for token embeddings.
         position_embedding_table (nn.Embedding): Lookup table for position embeddings.
         blocks (nn.Sequential): Sequence of Transformer blocks.
         ln_f (nn.LayerNorm): Final layer normalization.
-        lm_head (nn.Linear): Linear layer for language model prediction.
+        lm_head (nn.Linear): Language model head sharing weights with token embeddings.
 
     Methods:
-        __init__():
-            Initializes the BigramLanguageModel class.
+        forward(idx, targets=None): Performs forward pass through the model.
+        generate(idx, max_new_tokens): Generates new tokens autoregressively.
 
-        forward(idx, targets=None):
-            Performs forward pass through the model.
-
-        generate(idx, max_new_tokens):
-            Generates new tokens based on the given context.
+    Example:
+        model = GPT()
+        logits, loss = model(idx, targets)
     """
 
-    def __init__(self):
+    def _build_layers(self):
         """
-        Initializes the BigramLanguageModel class by setting up the model architecture.
-
-        Args:
-            None
+        Creates all model layers including embeddings, transformer blocks,
+        final layer norm, and the weight-tied language model head.
 
         Returns:
-            None
+            None: Sets model layers as instance attributes.
         """
-        super().__init__()
         self.token_embedding_table = nn.Embedding(enc.n_vocab, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(
             *[Block(n_embd, n_head=n_head) for _ in range(n_layer)]
         )
         self.ln_f = nn.LayerNorm(n_embd)
-        self.lm_head = nn.Linear(n_embd, enc.n_vocab)
+        self.lm_head = nn.Linear(n_embd, enc.n_vocab, bias=False)
+        self.lm_head.weight = self.token_embedding_table.weight
+
+    def _init_linear(self, module):
+        """
+        Initializes a linear layer with normal distribution using standard
+        deviation 0.02, scaled down for residual projections to prevent
+        signal growth through the residual stream.
+
+        Args:
+            module (nn.Linear): The linear module to initialize.
+
+        Returns:
+            None: Modifies module weights in place.
+        """
+        std = 0.02
+        if hasattr(module, "NANOGPT_SCALE_INIT"):
+            std *= (2 * n_layer) ** -0.5
+        torch.nn.init.normal_(module.weight, mean=0.0, std=std)
+        if module.bias is not None:
+            torch.nn.init.zeros_(module.bias)
+
+    def _init_embedding(self, module):
+        """
+        Initializes an embedding layer with normal distribution using standard
+        deviation 0.02 matching the GPT-2 initialization scheme.
+
+        Args:
+            module (nn.Embedding): The embedding module to initialize.
+
+        Returns:
+            None: Modifies module weights in place.
+        """
+        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def _init_weights(self, module):
+        """
+        Dispatches weight initialization to the appropriate handler based on
+        module type following the GPT-2 paper initialization scheme.
+
+        Args:
+            module (nn.Module): The module whose weights are being initialized.
+
+        Returns:
+            None: Delegates to type-specific initialization methods.
+        """
+        if isinstance(module, nn.Linear):
+            self._init_linear(module)
+        elif isinstance(module, nn.Embedding):
+            self._init_embedding(module)
+
+    def __init__(self):
+        """
+        Initializes the GPT model by building all layers and applying custom
+        weight initialization with scaled residual projections.
+        """
+        super().__init__()
+        self._build_layers()
+        self.apply(self._init_weights)
 
     def _compute_logits(self, idx):
         """
-        Computes the output logits from input token indices through the full
+        Computes output logits from input token indices through the full
         transformer stack including embeddings, blocks, and the language model head.
 
         Args:
@@ -346,7 +318,7 @@ class BigramLanguageModel(nn.Module):
         """
         B, T = idx.shape
         tok_emb = self.token_embedding_table(idx)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=device))
+        pos_emb = self.position_embedding_table(torch.arange(T, device=idx.device))
         x = tok_emb + pos_emb
         x = self.blocks(x)
         x = self.ln_f(x)
@@ -354,8 +326,8 @@ class BigramLanguageModel(nn.Module):
 
     def _compute_loss(self, logits, targets):
         """
-        Computes the cross-entropy loss between predicted logits and target indices
-        by reshaping the tensors into a two-dimensional classification format.
+        Computes cross-entropy loss between predicted logits and target indices
+        by reshaping tensors into two-dimensional classification format.
 
         Args:
             logits (torch.Tensor): Predicted logits of shape (B, T, vocab_size).
@@ -371,15 +343,15 @@ class BigramLanguageModel(nn.Module):
 
     def forward(self, idx, targets=None):
         """
-        Performs forward pass through the model.
+        Performs forward pass computing logits and optionally cross-entropy loss.
 
         Args:
             idx (torch.Tensor): Input indices tensor of shape (B, T).
-            targets (torch.Tensor): Target indices tensor of shape (B, T).
+            targets (torch.Tensor): Optional target indices of shape (B, T).
 
         Returns:
-            logits (torch.Tensor): Output logits tensor of shape (B, T, vocab_size).
-            loss (torch.Tensor or None): Optional loss tensor if targets are provided.
+            tuple: A tuple of (logits, loss) where logits has shape
+                (B, T, vocab_size) and loss is a scalar tensor or None.
         """
         logits = self._compute_logits(idx)
         loss = self._compute_loss(logits, targets) if targets is not None else None
@@ -387,18 +359,19 @@ class BigramLanguageModel(nn.Module):
 
     def generate(self, idx, max_new_tokens):
         """
-        Generates new tokens based on the given context.
+        Generates new tokens autoregressively based on the given context
+        using multinomial sampling from the softmax distribution.
 
         Args:
             idx (torch.Tensor): Input indices tensor of shape (B, T).
             max_new_tokens (int): Maximum number of new tokens to generate.
 
         Returns:
-            idx (torch.Tensor): Generated indices tensor of shape (B, T+max_new_tokens).
+            torch.Tensor: Extended indices tensor of shape (B, T + max_new_tokens).
         """
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -block_size:]
-            logits, loss = self(idx_cond)
+            logits, _ = self(idx_cond)
             logits = logits[:, -1, :]
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
