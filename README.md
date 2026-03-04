@@ -148,19 +148,7 @@ The device is selected automatically at startup using the priority order `cuda >
 | `warmup_iters`   | 2,000       | 200      | Proportional to shorter training run      |
 | `lr_decay_iters` | 50,000      | 3,000    | Matches reduced `max_iters`               |
 
-Fine-tuning and inference parameters also differ to improve chatbot quality on the smaller training budget:
-
-| Parameter                | `.py` files | Notebook | Reason                                  |
-| ------------------------ | ----------- | -------- | --------------------------------------- |
-| `finetune_iters`         | 3,000       | 6,000    | More iterations for better convergence  |
-| `finetune_lr`            | 1e-5        | 5e-5     | Higher LR so the model learns patterns  |
-| `finetune_warmup`        | 100         | 200      | Proportional to longer fine-tuning run  |
-| `inf_temperature`        | 0.7         | 0.3      | Lower randomness for coherent responses |
-| `inf_top_k`              | 50          | 20       | Narrower sampling for 124M param model  |
-| `inf_repetition_penalty` | 1.2         | 1.3      | Stronger dedup to prevent loops         |
-| `inf_max_new_tokens`     | 256         | 128      | Single-sentence responses need fewer    |
-
-Everything else — architecture, optimizer, batch size, gradient accumulation, mixed precision — is exactly the same.
+Everything else — architecture, optimizer, learning rate, batch size, gradient accumulation, mixed precision, fine-tuning hyperparameters, and inference parameters — is exactly the same.
 
 **Additional notebook differences:**
 - **Training data is generated at runtime.** The notebook embeds the full data generator inline (10,000 diverse Q&A pairs across 22 categories) instead of loading `training_data.json` from a file. This eliminates the need to upload the JSON to Kaggle.

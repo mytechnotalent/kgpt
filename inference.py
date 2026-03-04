@@ -13,16 +13,16 @@ device = (
 
 # the max_new_tokens parameter controls the maximum number of tokens the model
 # will generate in a single response preventing excessively long outputs
-max_new_tokens = 256
+max_new_tokens = 128
 # the temperature parameter controls the randomness of token sampling where
 # lower values make the model more deterministic and higher values more creative
-temperature = 0.7
+temperature = 0.3
 # the top_k parameter limits the sampling pool to the k most probable next tokens
 # filtering out low-probability tokens that could produce incoherent text
-top_k = 50
+top_k = 20
 # the repetition_penalty parameter discourages the model from repeating tokens
 # by dividing the logits of previously generated tokens by this value
-repetition_penalty = 1.2
+repetition_penalty = 1.3
 
 
 def _load_model(checkpoint_path):
@@ -159,6 +159,29 @@ def _generate_response(model, prompt_tokens):
     return enc.decode(generated_ids).strip()
 
 
+def _truncate_to_one_sentence(text):
+    """
+    Truncates text to the first complete sentence by splitting on sentence
+    ending punctuation followed by a space or end of string, avoiding cuts
+    inside decimal numbers or abbreviations.
+
+    Args:
+        text (str): The full response text that may contain multiple sentences.
+
+    Returns:
+        str: The first sentence from the input text including its ending
+            punctuation mark or the full text if no boundary is found.
+    """
+    for i, ch in enumerate(text):
+        if ch in ".!?" and i > 0:
+            after_end = i == len(text) - 1 or text[i + 1] == " "
+            before_is_digit = text[i - 1].isdigit()
+            after_is_digit = i < len(text) - 1 and text[i + 1].isdigit()
+            if after_end and not (before_is_digit and after_is_digit):
+                return text[: i + 1].strip()
+    return text.strip()
+
+
 def _extract_clean_response(raw_response):
     """
     Cleans up the raw generated response by removing any residual delimiter tokens
@@ -174,7 +197,7 @@ def _extract_clean_response(raw_response):
     """
     for tag in ["<|user|>", "<|assistant|>", "<|end|>"]:
         raw_response = raw_response.split(tag)[0]
-    return raw_response.strip()
+    return _truncate_to_one_sentence(raw_response.strip())
 
 
 def _print_welcome():

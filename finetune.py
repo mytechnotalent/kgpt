@@ -10,16 +10,16 @@ warnings.filterwarnings("ignore")
 # the finetune_iters parameter determines how many gradient update steps to perform
 # during the conversational fine-tuning phase using a smaller count since the
 # pretrained model already has strong language understanding
-finetune_iters = 3000
+finetune_iters = 6000
 # the finetune_lr parameter is the peak learning rate during fine-tuning set lower
 # than pretraining to preserve pretrained knowledge while adapting to conversations
-finetune_lr = 1e-5
+finetune_lr = 5e-5
 # the finetune_warmup parameter specifies iterations for linear learning rate warmup
 # to avoid large initial updates that could corrupt pretrained weights
-finetune_warmup = 100
+finetune_warmup = 200
 # the eval_interval parameter specifies how frequently to print training loss
 # during fine-tuning to monitor convergence progress
-eval_interval = 100
+eval_interval = 200
 # the eval_iters parameter determines the number of batches used to estimate
 # the average training loss at each evaluation checkpoint
 eval_iters = 20
