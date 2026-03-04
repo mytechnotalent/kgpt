@@ -4,14 +4,6 @@
 
 <br>
 
-# Today's Tutorial [March 4, 2026]
-## Lesson 123: x64 Course (Part 3 - Logic Gates)
-This tutorial will discuss logic gates.
-
--> Click [HERE](https://0xinfection.github.io/reversing) to read the FREE ebook.
-
-<br>
-
 # KGPT
 A GPT-2-class language model trained from scratch on [OpenWebText](https://huggingface.co/datasets/openwebtext) based on [Zero To Hero](https://karpathy.ai/zero-to-hero.html) utilizing tiktoken with the intent to augment AI Transformer-model education and reverse engineer GPT models from scratch.
 
