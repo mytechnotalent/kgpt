@@ -15,6 +15,10 @@ random.seed(42)
 
 Q_TEMPLATES = [
     "{q}",
+    "{q}",
+    "{q}",
+    "{q}",
+    "{q}",
     "Can you tell me, {ql}",
     "I want to know, {ql}",
     "Please explain, {ql}",
@@ -421,6 +425,38 @@ SMALLTALK = [
 ]
 
 SCIENCE_QA = [
+    (
+        "What is AI?",
+        "AI stands for artificial intelligence. It is technology that enables machines to perform tasks that typically require human intelligence, such as learning, reasoning, and problem solving.",
+    ),
+    (
+        "What is artificial intelligence?",
+        "Artificial intelligence (AI) is technology that enables machines to perform tasks that typically require human intelligence, such as understanding language, recognizing images, and making decisions.",
+    ),
+    (
+        "Explain artificial intelligence to me.",
+        "Artificial intelligence is when computers are programmed to mimic human thinking. It includes things like language understanding, image recognition, and decision making.",
+    ),
+    (
+        "What is machine learning?",
+        "Machine learning is a branch of artificial intelligence where computers learn patterns from data instead of being explicitly programmed for every task.",
+    ),
+    (
+        "What is deep learning?",
+        "Deep learning is a subset of machine learning that uses neural networks with many layers to learn complex patterns in large amounts of data.",
+    ),
+    (
+        "What is a neural network?",
+        "A neural network is a computing system inspired by the human brain. It consists of layers of interconnected nodes that process information and learn patterns from data.",
+    ),
+    (
+        "What is natural language processing?",
+        "Natural language processing (NLP) is a field of AI focused on enabling computers to understand, interpret, and generate human language.",
+    ),
+    (
+        "What is a language model?",
+        "A language model is an AI system trained to predict and generate text. It learns patterns in language from large amounts of text data.",
+    ),
     (
         "What is gravity?",
         "Gravity is a fundamental force that attracts objects with mass toward each other. On Earth, it gives objects weight and causes them to fall at approximately 9.8 meters per second squared.",
