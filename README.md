@@ -12,16 +12,17 @@ The model matches the nanoGPT / GPT-2 small architecture (`n_embd=768`, `n_head=
 <br>
 
 ## Repository Files
-| File                 | Description                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `model.py`           | GPT-2 architecture (CausalSelfAttention, Block, GPT)          |
-| `train.py`           | Pretrains the model on OpenWebText (DDP + torch.compile)      |
-| `finetune.py`        | Fine-tunes the pretrained model on training_data.json         |
-| `inference.py`       | Interactive chatbot with temperature and top-k sampling       |
-| `prepare_data.py`    | Downloads OpenWebText and creates tokenized binary files      |
-| `training_data.json` | Conversational dataset (user / assistant pairs)               |
-| `pyproject.toml`     | Project metadata and dependencies                             |
-| `kaggle_kgpt.ipynb`  | Self-contained Kaggle notebook (train + finetune + inference) |
+| File                        | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
+| `model.py`                  | GPT-2 architecture (CausalSelfAttention, Block, GPT)             |
+| `train.py`                  | Pretrains the model on OpenWebText (DDP + torch.compile)         |
+| `finetune.py`               | Fine-tunes the pretrained model on training_data.json            |
+| `inference.py`              | Interactive chatbot with temperature and top-k sampling          |
+| `prepare_data.py`           | Downloads OpenWebText and creates tokenized binary files         |
+| `generate_training_data.py` | Generates 10,000 diverse Q&A training pairs across 22 categories |
+| `training_data.json`        | Conversational dataset (user / assistant pairs)                  |
+| `pyproject.toml`            | Project metadata and dependencies                                |
+| `kgpt-lite.ipynb`           | Self-contained Kaggle notebook (train + finetune + inference)    |
 
 <br>
 
@@ -69,7 +70,7 @@ For multi-GPU training via DDP:
 torchrun --nproc_per_node=N train.py
 ```
 
-> **Kaggle GPU training:** Upload `kaggle_kgpt.ipynb` to Kaggle with your dataset and enable a T4 GPU. The notebook completes pretraining, fine-tuning, and inference in a single session (~8–9 hours).
+> **Kaggle GPU training:** Upload `kgpt-lite.ipynb` to Kaggle with your dataset and enable a T4 GPU. The notebook completes pretraining, fine-tuning, and inference in a single session (~8–9 hours).
 
 <br>
 
@@ -128,9 +129,9 @@ The device is selected automatically at startup using the priority order `cuda >
 
 <br>
 
-## Kaggle Notebook
+## KGPT-Lite Notebook
 
-`kaggle_kgpt.ipynb` is a self-contained notebook that runs pretraining, fine-tuning, and inference end-to-end in a single Kaggle session. The model architecture and code are **identical** to the `.py` files — the only differences are training parameters tuned to fit within Kaggle's 10-hour T4 GPU limit:
+`kgpt-lite.ipynb` is a self-contained notebook that runs pretraining, fine-tuning, and inference end-to-end in a single Kaggle session. The model architecture and code are **identical** to the `.py` files — the only differences are training parameters tuned to fit within Kaggle's 10-hour T4 GPU limit:
 
 | Parameter        | `.py` files | Notebook | Reason                                    |
 | ---------------- | ----------- | -------- | ----------------------------------------- |
@@ -139,4 +140,20 @@ The device is selected automatically at startup using the priority order `cuda >
 | `warmup_iters`   | 2,000       | 200      | Proportional to shorter training run      |
 | `lr_decay_iters` | 50,000      | 3,000    | Matches reduced `max_iters`               |
 
-Everything else — architecture, optimizer, learning rate, batch size, gradient accumulation, mixed precision — is exactly the same.
+Fine-tuning and inference parameters also differ to improve chatbot quality on the smaller training budget:
+
+| Parameter                | `.py` files | Notebook | Reason                                  |
+| ------------------------ | ----------- | -------- | --------------------------------------- |
+| `finetune_iters`         | 3,000       | 6,000    | More iterations for better convergence  |
+| `finetune_lr`            | 1e-5        | 5e-5     | Higher LR so the model learns patterns  |
+| `finetune_warmup`        | 100         | 200      | Proportional to longer fine-tuning run  |
+| `inf_temperature`        | 0.7         | 0.3      | Lower randomness for coherent responses |
+| `inf_top_k`              | 50          | 20       | Narrower sampling for 124M param model  |
+| `inf_repetition_penalty` | 1.2         | 1.3      | Stronger dedup to prevent loops         |
+| `inf_max_new_tokens`     | 256         | 128      | Single-sentence responses need fewer    |
+
+Everything else — architecture, optimizer, batch size, gradient accumulation, mixed precision — is exactly the same.
+
+**Additional notebook differences:**
+- **Training data is generated at runtime.** The notebook embeds the full data generator inline (10,000 diverse Q&A pairs across 22 categories) instead of loading `training_data.json` from a file. This eliminates the need to upload the JSON to Kaggle.
+- **Inference is single-sentence.** Responses are truncated to the first complete sentence for concise, practical chatbot output.
